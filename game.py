@@ -27,6 +27,7 @@ CROSS_COLOR = (66, 66, 66)
 
 # Fonts
 FONT = pygame.font.SysFont('arial', 32)
+SMALL_FONT = pygame.font.SysFont('arial', 18)
 
 # Screen setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -36,11 +37,22 @@ screen.fill(BG_COLOR)
 # Board
 board = [[None for _ in range(BOARD_COLS)] for _ in range(BOARD_ROWS)]
 
+# Scores
+wins = 0
+losses = 0
+draws = 0
+
+
+def update_caption():
+    pygame.display.set_caption(f'Tic Tac Toe AI - W:{wins} L:{losses} D:{draws} (Press R to play again)')
+
+
 def draw_lines():
     for row in range(1, BOARD_ROWS):
         pygame.draw.line(screen, LINE_COLOR, (0, row * SQUARE_SIZE), (WIDTH, row * SQUARE_SIZE), LINE_WIDTH)
     for col in range(1, BOARD_COLS):
         pygame.draw.line(screen, LINE_COLOR, (col * SQUARE_SIZE, 0), (col * SQUARE_SIZE, HEIGHT), LINE_WIDTH)
+
 
 def draw_figures():
     for row in range(BOARD_ROWS):
@@ -57,14 +69,18 @@ def draw_figures():
                 end_asc = (col * SQUARE_SIZE + SQUARE_SIZE - SPACE, row * SQUARE_SIZE + SPACE)
                 pygame.draw.line(screen, CROSS_COLOR, start_asc, end_asc, CROSS_WIDTH)
 
+
 def mark_square(row, col, player):
     board[row][col] = player
+
 
 def available_square(row, col):
     return board[row][col] is None
 
+
 def is_board_full():
     return all(all(cell is not None for cell in row) for row in board)
+
 
 def check_win(player):
     for row in board:
@@ -79,16 +95,38 @@ def check_win(player):
         return True
     return False
 
+
 def ai_move():
     empty_cells = [(r, c) for r in range(BOARD_ROWS) for c in range(BOARD_COLS) if board[r][c] is None]
     return random.choice(empty_cells) if empty_cells else None
 
-def show_message(message):
+
+def show_message(message, duration=2000):
+    # Draw a semi-transparent rect behind the text for visibility
+    overlay = pygame.Surface((WIDTH, 60))
+    overlay.set_alpha(200)
+    overlay.fill((0, 0, 0))
+    screen.blit(overlay, (0, HEIGHT//2 - 30))
+
     text = FONT.render(message, True, (255, 255, 255))
     rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(text, rect)
     pygame.display.update()
-    pygame.time.wait(2000)
+    pygame.time.wait(duration)
+
+
+def show_prompt(message):
+    # show a small prompt at the bottom of the screen
+    text = SMALL_FONT.render(message, True, (255, 255, 255))
+    rect = text.get_rect(center=(WIDTH // 2, HEIGHT - 20))
+    # draw a small semi-transparent background for readability
+    bg = pygame.Surface((rect.width + 10, rect.height + 6))
+    bg.set_alpha(180)
+    bg.fill((0, 0, 0))
+    screen.blit(bg, (rect.x - 5, rect.y - 3))
+    screen.blit(text, rect)
+    pygame.display.update()
+
 
 def restart_game():
     global board
@@ -97,7 +135,10 @@ def restart_game():
     draw_lines()
     draw_figures()
 
+
+# Initial draw
 draw_lines()
+update_caption()
 player = 'X'
 game_over = False
 
@@ -118,25 +159,42 @@ while True:
                 draw_figures()
 
                 if check_win(player):
+                    wins += 1
+                    update_caption()
                     show_message("You win!")
+                    show_prompt("Press R to play again")
                     game_over = True
                 elif is_board_full():
+                    draws += 1
+                    update_caption()
                     show_message("Draw!")
+                    show_prompt("Press R to play again")
                     game_over = True
                 else:
-                    ai_r, ai_c = ai_move()
-                    mark_square(ai_r, ai_c, 'O')
-                    draw_figures()
-                    if check_win('O'):
-                        show_message("AI wins!")
-                        game_over = True
-                    elif is_board_full():
-                        show_message("Draw!")
-                        game_over = True
+                    move = ai_move()
+                    if move:
+                        ai_r, ai_c = move
+                        mark_square(ai_r, ai_c, 'O')
+                        draw_figures()
+                        if check_win('O'):
+                            losses += 1
+                            update_caption()
+                            show_message("AI wins!")
+                            show_prompt("Press R to play again")
+                            game_over = True
+                        elif is_board_full():
+                            draws += 1
+                            update_caption()
+                            show_message("Draw!")
+                            show_prompt("Press R to play again")
+                            game_over = True
 
         if game_over and event.type == pygame.KEYDOWN:
-            restart_game()
-            player = 'X'
-            game_over = False
+            # Only restart if the player presses the R key
+            if event.key == pygame.K_r:
+                restart_game()
+                player = 'X'
+                game_over = False
+                update_caption()
 
     pygame.display.update()
